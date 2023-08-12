@@ -1278,5 +1278,246 @@ public interface IAuthenticationService
 
 ---
 
-##### Use the Packge ErrorOr
-- dotnet add BuberDinner.Application/BuberDinner.Application.csproj package ErrorOr
+##### Use the Packge ErrorOr to the Domain project or Domain Layer
+- dotnet add BuberDinner.Domain/BuberDinner.Domain.csproj package ErrorOr
+In Domain Layer, create a new folder called Common/Errors/Errors.User.cs and add the following:
+```csharp
+using ErrorOr;
+
+namespace BuberDinner.Domain.Common.Errors;
+
+public static class Errors
+{
+    public static class User{
+            public static Error DuplicateEmail => Error.Conflict(
+                code: "User.DuplicateEmail",
+                description: "Email already exists");
+    }
+}
+```
+
+In IAuthenticationService.cs
+```csharp
+using BuberDinner.Application.Common.Errors;
+using ErrorOr;
+
+namespace BuberDinner.Application.Services.Authentication;
+
+public interface IAuthenticationService
+{
+  ErrorOr<AuthenticationResult> Register(string FirstName, string LastName, string Email, string Password);
+    AuthenticationResult Login(string Email, string Password);
+}
+```
+
+Update the AuthenticationService.cs i.e the implementation
+```csharp 
+using BuberDinner.Application.Common.Errors;
+using BuberDinner.Application.Common.Interfaces.Authentication;
+using BuberDinner.Application.Common.Interfaces.Persistence;
+using BuberDinner.Domain.Common.Errors;
+using BuberDinner.Domain.Entities;
+using ErrorOr;
+using FluentResults;
+
+namespace BuberDinner.Application.Services.Authentication;
+
+public class AuthenticationService : IAuthenticationService
+{
+    private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IUserRepository _userRepository;
+
+    public AuthenticationService(IJwtTokenGenerator jwtTokenGenerator, IUserRepository userRepository)
+    {
+        _jwtTokenGenerator = jwtTokenGenerator;
+        _userRepository = userRepository;
+    }
+
+    public AuthenticationResult Login(string Email, string Password)
+    {
+
+        // 1. Check if user exists
+        if(_userRepository.GetUserByEmail(Email) is not User user){
+            throw new Exception("User does not exist");
+        }
+
+        // 2. Check if password is correct
+        if(user.Password != Password){
+            throw new Exception("Password is incorrect");
+        }
+      
+
+        // 3. Create jwt token
+        var token = _jwtTokenGenerator.GenerateToken(user);
+        
+        return new AuthenticationResult(
+            user,
+            token);
+    }
+
+    public ErrorOr<AuthenticationResult> Register(string FirstName, string LastName, string Email, string Password)
+    {
+        //1. Vakidate if user does not exist
+        if(_userRepository.GetUserByEmail(Email) is not null){
+            return Errors.User.DuplicateEmail;
+        }
+
+        //2. create user (generate unique id) & persist to db
+        var user = new User
+        {
+            FirstName = FirstName,
+            LastName = LastName,
+            Email = Email,
+            Password = Password
+        };
+
+        _userRepository.Add(user);
+        // 3. create jwt token
+        var token = _jwtTokenGenerator.GenerateToken(user);
+
+        return new AuthenticationResult(
+           user,
+            token);
+    }
+}
+```
+
+Then in the AutheticationController.cs
+```csharp
+using BuberDinner.Application.Common.Errors;
+using BuberDinner.Application.Services.Authentication;
+using BuberDinner.Contracts.Authentication;
+using ErrorOr;
+using FluentResults;
+using Microsoft.AspNetCore.Mvc;
+
+namespace BuberDinner.Api.Controllers;
+
+[ApiController]
+[Route("auth")] // you can use [Route("api/[controller]")] instead
+public class AuthenticationController : ControllerBase
+{
+    private readonly IAuthenticationService _authenticationService;
+
+    public AuthenticationController(IAuthenticationService authenticationService)
+    {
+        _authenticationService = authenticationService;
+    }
+
+    [HttpPost("register")]
+    public IActionResult Register([FromBody] RegisterRequest request)
+    {
+        ErrorOr<AuthenticationResult> authResult = _authenticationService.Register(
+            request.FirstName,
+            request.LastName,
+            request.Email,
+            request.Password);
+
+        return authResult.Match(
+            authResult => Ok(NewMethod(authResult)),
+            _ => Problem(
+                // detail: "User already exists",
+                statusCode: StatusCodes.Status409Conflict,
+                title: "User already exists"
+            ));
+    }
+
+    private static AuthenticationResponse NewMethod(AuthenticationResult authResult)
+    {
+        return new AuthenticationResponse(
+            authResult.User.Id,
+            authResult.User.Email,
+            authResult.User.FirstName,
+            authResult.User.LastName,
+            authResult.Token
+        );
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        var authresult = _authenticationService.Login(
+            request.Email,
+            request.Password);
+
+        var response = new AuthenticationResponse(
+            authresult.User.Id,
+            authresult.User.Email,
+            authresult.User.FirstName,
+            authresult.User.LastName,
+            authresult.Token
+        );
+        return Ok(response);
+    }
+}
+```
+
+or use
+```csharp
+using BuberDinner.Application.Common.Errors;
+using BuberDinner.Application.Services.Authentication;
+using BuberDinner.Contracts.Authentication;
+using ErrorOr;
+using FluentResults;
+using Microsoft.AspNetCore.Mvc;
+
+namespace BuberDinner.Api.Controllers;
+
+[ApiController]
+[Route("auth")] // you can use [Route("api/[controller]")] instead
+public class AuthenticationController : ControllerBase
+{
+    private readonly IAuthenticationService _authenticationService;
+
+    public AuthenticationController(IAuthenticationService authenticationService)
+    {
+        _authenticationService = authenticationService;
+    }
+
+    [HttpPost("register")]
+    public IActionResult Register([FromBody] RegisterRequest request)
+    {
+        ErrorOr<AuthenticationResult> authResult = _authenticationService.Register(
+            request.FirstName,
+            request.LastName,
+            request.Email,
+            request.Password);
+
+        return authResult.MatchFirst(
+            authResult => Ok(MapAuthResult(authResult)),
+            firstError => Problem(
+                // detail: "User already exists",
+                statusCode: StatusCodes.Status409Conflict,
+                title: firstError.Description
+            ));
+    }
+
+    private static AuthenticationResponse MapAuthResult(AuthenticationResult authResult)
+    {
+        return new AuthenticationResponse(
+            authResult.User.Id,
+            authResult.User.Email,
+            authResult.User.FirstName,
+            authResult.User.LastName,
+            authResult.Token
+        );
+    }
+
+    [HttpPost("login")]
+    public IActionResult Login([FromBody] LoginRequest request)
+    {
+        var authresult = _authenticationService.Login(
+            request.Email,
+            request.Password);
+
+        var response = new AuthenticationResponse(
+            authresult.User.Id,
+            authresult.User.Email,
+            authresult.User.FirstName,
+            authresult.User.LastName,
+            authresult.Token
+        );
+        return Ok(response);
+    }
+}
+```
