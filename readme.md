@@ -1521,3 +1521,16 @@ public class AuthenticationController : ControllerBase
     }
 }
 ```
+
+---
+
+You can also run your application using :
+- dotnet run --project  ./BuberDinner.Api
+
+Watch the application using:
+- dotnet watch --project ./BuberDinner.Api
+
+
+##### CQRS AND MEDIATR
+CQRS stands for Command Query Responsibility Segregation. It's a pattern that segregates the operations that read data (Queries) from the operations that update data (Commands). This means that we should have different models to update information than the models we use to read information.
+![Alt text](image-14.png)
