@@ -1534,3 +1534,19 @@ Watch the application using:
 ##### CQRS AND MEDIATR
 CQRS stands for Command Query Responsibility Segregation. It's a pattern that segregates the operations that read data (Queries) from the operations that update data (Commands). This means that we should have different models to update information than the models we use to read information.
 ![Alt text](image-14.png)
+
+![Alt text](image-15.png)
+
+##### Add the MediatR package to the Application project
+- dotnet add BuberDinner.Application/BuberDinner.Application.csproj package MediatR
+
+##### Add the MediatR to the Controller Layer
+The mediator will replace the AuthenticationCommandService.cs
+```csharp
+
+```
+
+#### Add MediatR package to the Application project
+- dotnet add BuberDinner.Application/BuberDinner.Application.csproj package MediatR.Extensions.Microsoft.DependencyInjection
+##### Remove MediatR package from the Application project
+- dotnet remove BuberDinner.Application/BuberDinner.Application.csproj package MediatR.Extensions.Microsoft.DependencyInjection
