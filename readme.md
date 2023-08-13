@@ -1550,3 +1550,16 @@ The mediator will replace the AuthenticationCommandService.cs
 - dotnet add BuberDinner.Application/BuberDinner.Application.csproj package MediatR.Extensions.Microsoft.DependencyInjection
 ##### Remove MediatR package from the Application project
 - dotnet remove BuberDinner.Application/BuberDinner.Application.csproj package MediatR.Extensions.Microsoft.DependencyInjection
+
+
+---
+
+##### Mapster
+![Alt text](image-16.png)
+Another way to map objects is to use Mapster. Mapster is a fast, convention-based, code-first and free mapper without limits.
+
+Alternatively, you can use AutoMapper. AutoMapper is a convention-based, object-object mapper. It maps the values of one object to another object of a different type.
+
+##### Add the Mapster package to the Api project
+- dotnet add BuberDinner.Api/BuberDinner.Api.csproj package Mapster
+- dotnet add BuberDinner.Api/BuberDinner.Api.csproj package Mapster.DependencyInjection
